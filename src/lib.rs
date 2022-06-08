@@ -43,15 +43,18 @@ impl JsonParser {
         value
     }
 
+    fn eof(&self) -> bool {
+        return self.cursor >= self.input.chars().count();
+    }
+
     fn peek(&self) -> char {
         if self.eof() {
             return '0';
         }
+        // FIXME: This feels like an inefficient way to do this,
+        // i.e. we always have to do a linear scan up to the nth 
+        // character at self.cursor whenever call peek().
         self.input.chars().nth(self.cursor).unwrap()
-    }
-
-    fn eof(&self) -> bool {
-        return self.cursor >= self.input.chars().count();
     }
 
     fn skip_whitespace(&mut self) {
@@ -86,9 +89,10 @@ impl JsonParser {
 
     fn parse_helper(&mut self) -> Result<JsonValue, ParserError> {
         self.skip_whitespace();
-        let result = match self.peek() {
-            // FIXME: We should be able to improve the way parse_number is done.
+        return match self.peek() {
+            // FIXME: We should be able to improve the way we match on parse_number.
             '{' => self.parse_object(),
+            '"' => self.parse_string(),
             '-' => self.parse_number(),
             '0' => self.parse_number(),
             '1' => self.parse_number(),
@@ -102,7 +106,6 @@ impl JsonParser {
             '9' => self.parse_number(),
             _ => Err(ParserError::ParseHelperFailed("ParseHelper failed.".to_string())),
         };
-        result
     }
 
     fn parse_object(&mut self) -> Result<JsonValue, ParserError> {
@@ -116,14 +119,20 @@ impl JsonParser {
                 return Err(ParserError::InvalidJson("Invalid JSON.".to_string()));
             }
             self.skip_whitespace();
-            let name = self.consume_and_unescape_string().unwrap();
+
+            // Get the property key.
+            let key = self.consume_and_unescape_string().unwrap();
+
             self.skip_whitespace();
             if !self.consume_specific(':') {
                 return Err(ParserError::ParseError("Expected ':'".to_string()));
             }
             self.skip_whitespace();
+
+            // Get the property value.
             let value = self.parse_helper().unwrap();
-            values.insert(name, value);
+            values.insert(key, value);
+
             self.skip_whitespace();
             if self.peek() == '}' {
                 break;
@@ -142,6 +151,11 @@ impl JsonParser {
         Ok(JsonValue::Object(values))
     }
 
+    fn parse_string(&mut self) -> Result<JsonValue, ParserError> {
+        // FIXME: Implement parse_string().
+        todo!()
+    }
+
     fn parse_number(&mut self) -> Result<JsonValue, ParserError> {
         let mut value: i64 = 0;
         while !self.eof() {
@@ -153,7 +167,6 @@ impl JsonParser {
             value += (ch as u8 - b'0') as i64;
             self.cursor += 1;
         }
-
         Ok(JsonValue::Number(value))
     }
 }

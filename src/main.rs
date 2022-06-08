@@ -11,6 +11,6 @@ fn main() {
     let value: Result<JsonValue, ParserError> = parser.parse();
     match value {
         Ok(value) => println!("The parsed value is: {:?}", value),
-        Err(_) => panic!("Could not parse JSON."),
+        Err(_) => panic!("Could not parse JSON: \n {}", parser.input),
     };
 }
