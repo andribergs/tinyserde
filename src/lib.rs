@@ -24,6 +24,14 @@ pub enum ParserError {
     InvalidJson(String),
 }
 
+#[derive(Debug, PartialEq)]
+enum ParseType {
+    Object,
+    Number,
+    String,
+    Unknown,
+}
+
 fn is_whitespace(c: char) -> bool {
     return match c {
         '\t' => true,
@@ -31,6 +39,37 @@ fn is_whitespace(c: char) -> bool {
         '\r' => true,
         ' ' => true,
         _ => false,
+    }
+}
+
+fn is_numeric_char(c: char) -> bool { 
+    return match c {
+        '-' => true,
+        '0' => true,
+        '1' => true,
+        '2' => true,
+        '3' => true,
+        '4' => true,
+        '5' => true,
+        '6' => true,
+        '7' => true,
+        '8' => true,
+        '9' => true,
+        _ => false,
+    }
+}
+
+fn determine_parse_type(c: char) -> ParseType {
+    if c == '{' {
+        ParseType::Object
+    } 
+    else if is_numeric_char(c) {
+        ParseType::Number
+        
+    } else if c == '"' {
+        ParseType::String
+    } else {
+        ParseType::Unknown
     }
 }
 
@@ -89,21 +128,11 @@ impl JsonParser {
 
     fn parse_helper(&mut self) -> Result<JsonValue, ParserError> {
         self.skip_whitespace();
-        return match self.peek() {
-            // FIXME: We should be able to improve the way we match on parse_number.
-            '{' => self.parse_object(),
-            '"' => self.parse_string(),
-            '-' => self.parse_number(),
-            '0' => self.parse_number(),
-            '1' => self.parse_number(),
-            '2' => self.parse_number(),
-            '3' => self.parse_number(),
-            '4' => self.parse_number(),
-            '5' => self.parse_number(),
-            '6' => self.parse_number(),
-            '7' => self.parse_number(),
-            '8' => self.parse_number(),
-            '9' => self.parse_number(),
+        let type_to_parse: ParseType = determine_parse_type(self.peek());
+        return match type_to_parse {
+            ParseType::Object => self.parse_object(),
+            ParseType::Number => self.parse_number(),
+            ParseType::String => self.parse_string(),
             _ => Err(ParserError::ParseHelperFailed("ParseHelper failed.".to_string())),
         };
     }
