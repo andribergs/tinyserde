@@ -11,7 +11,7 @@ pub enum JsonValue {
     Null,
     Bool(bool),
     Number(i64),
-    String(&'static str),
+    String(String),
     Array(Box<[JsonValue]>),
     Object(HashMap<String, JsonValue>)
 }
@@ -26,9 +26,11 @@ pub enum ParserError {
 
 #[derive(Debug, PartialEq)]
 enum ParseType {
-    Object,
+    Null,
+    Boolean,
     Number,
     String,
+    Object,
     Unknown,
 }
 
@@ -68,6 +70,10 @@ fn determine_parse_type(c: char) -> ParseType {
         
     } else if c == '"' {
         ParseType::String
+    } else if c == 't' || c == 'f' {
+        ParseType::Boolean
+    } else if c == 'n' {
+        ParseType::Null
     } else {
         ParseType::Unknown
     }
@@ -133,6 +139,8 @@ impl JsonParser {
             ParseType::Object => self.parse_object(),
             ParseType::Number => self.parse_number(),
             ParseType::String => self.parse_string(),
+            ParseType::Boolean => self.parse_bool(),
+            ParseType::Null => self.parse_null(),
             _ => Err(ParserError::ParseHelperFailed("ParseHelper failed.".to_string())),
         };
     }
@@ -180,9 +188,32 @@ impl JsonParser {
         Ok(JsonValue::Object(values))
     }
 
+    fn parse_bool(&mut self) -> Result<JsonValue, ParserError> {
+        let value: bool;
+        if &self.input[self.cursor..self.cursor+4] == "true" {
+            value = true;
+            self.cursor += 4;
+        } else if &self.input[self.cursor..self.cursor+5] == "false" {
+            value = false;
+            self.cursor += 5;
+        } else {
+            return Err(ParserError::ParseError("Expected either true or false".to_string()));
+        }
+        Ok(JsonValue::Bool(value))
+    }
+
+    fn parse_null(&mut self) -> Result<JsonValue, ParserError> {
+        if &self.input[self.cursor..self.cursor+4] == "null" {
+            self.cursor += 4;
+        } else {
+            return Err(ParserError::ParseError("Expected null".to_string()));
+        }
+        Ok(JsonValue::Null)
+    }
+
     fn parse_string(&mut self) -> Result<JsonValue, ParserError> {
-        // FIXME: Implement parse_string().
-        todo!()
+        let value = self.consume_and_unescape_string().unwrap();
+        Ok(JsonValue::String(value))
     }
 
     fn parse_number(&mut self) -> Result<JsonValue, ParserError> {
@@ -201,7 +232,7 @@ impl JsonParser {
 }
 
 #[test]
-fn test_parse_json() {
+fn test_parse_json_obj_with_number() {
     let json_input = "{ \"foo\": 123 \n, \"bar\":    456 }".to_string();
     let mut parser = JsonParser {
         input: json_input, 
@@ -212,4 +243,46 @@ fn test_parse_json() {
         Ok(value) => assert_eq!(value, expected_value),
         Err(_) => assert!(false),
     }
+}
+
+#[test]
+fn test_parse_json_obj_with_string() {
+    let json_input = "{ \"foo\": \"abcde\" }".to_string();
+    let mut parser = JsonParser {
+        input: json_input, 
+        cursor: 0,
+    };
+    let expected_value = JsonValue::Object(HashMap::from([("foo".to_string(), JsonValue::String("abcde".to_string()))]));
+    match parser.parse() {
+        Ok(value) => assert_eq!(value, expected_value),
+        Err(_) => assert!(false),
+    };
+}
+
+#[test]
+fn test_parse_json_obj_with_bool() {
+    let json_input = "{ \"foo\": false }".to_string();
+    let mut parser = JsonParser {
+        input: json_input, 
+        cursor: 0,
+    };
+    let expected_value = JsonValue::Object(HashMap::from([("foo".to_string(), JsonValue::Bool(false))]));
+    match parser.parse() {
+        Ok(value) => assert_eq!(value, expected_value),
+        Err(_) => assert!(false),
+    };
+}
+
+#[test]
+fn test_parse_json_obj_with_null() {
+    let json_input = "{ \"foo\": null }".to_string();
+    let mut parser = JsonParser {
+        input: json_input, 
+        cursor: 0,
+    };
+    let expected_value = JsonValue::Object(HashMap::from([("foo".to_string(), JsonValue::Null)]));
+    match parser.parse() {
+        Ok(value) => assert_eq!(value, expected_value),
+        Err(_) => assert!(false),
+    };
 }
