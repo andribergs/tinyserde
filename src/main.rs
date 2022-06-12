@@ -3,7 +3,23 @@ use tinyserde::JsonValue;
 use tinyserde::ParserError;
 
 fn main() {
-    let json_input = "{ \"foo\": null }".to_string();
+    let json_input = "
+[
+  	{
+		\"foo\": null
+	},
+	{
+		\"bar\": 123
+	},
+	{
+		\"baz\": \"abcde\"
+	},
+	345,
+	\"efgh\",
+	null,
+	false
+]
+".to_string();
     let mut parser = JsonParser {
         input: json_input, 
         cursor: 0,

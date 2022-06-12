@@ -12,7 +12,7 @@ pub enum JsonValue {
     Bool(bool),
     Number(i64),
     String(String),
-    Array(Box<[JsonValue]>),
+    Array(Vec<JsonValue>),
     Object(HashMap<String, JsonValue>)
 }
 
@@ -30,6 +30,7 @@ enum ParseType {
     Boolean,
     Number,
     String,
+    Array,
     Object,
     Unknown,
 }
@@ -65,6 +66,9 @@ fn determine_parse_type(c: char) -> ParseType {
     if c == '{' {
         ParseType::Object
     } 
+    else if c =='[' {
+        ParseType::Array
+    }
     else if is_numeric_char(c) {
         ParseType::Number
         
@@ -82,6 +86,7 @@ fn determine_parse_type(c: char) -> ParseType {
 impl JsonParser {
     pub fn parse(&mut self) -> Result<JsonValue, ParserError> {
         let value = self.parse_helper();
+        self.skip_whitespace();
         if !self.eof() {
             return Err(ParserError::ConsumeInputNotFinished(self.cursor.clone()))
         }
@@ -98,7 +103,7 @@ impl JsonParser {
         }
         // FIXME: This feels like an inefficient way to do this,
         // i.e. we always have to do a linear scan up to the nth 
-        // character at self.cursor whenever call peek().
+        // character at self.cursor whenever we call peek().
         self.input.chars().nth(self.cursor).unwrap()
     }
 
@@ -141,6 +146,7 @@ impl JsonParser {
             ParseType::String => self.parse_string(),
             ParseType::Boolean => self.parse_bool(),
             ParseType::Null => self.parse_null(),
+            ParseType::Array => self.parse_array(),
             _ => Err(ParserError::ParseHelperFailed("ParseHelper failed.".to_string())),
         };
     }
@@ -186,6 +192,26 @@ impl JsonParser {
             return Err(ParserError::ParseError("Expected '}'".to_string()));
         }
         Ok(JsonValue::Object(values))
+    }
+
+    fn parse_array(&mut self) -> Result<JsonValue, ParserError> {
+        if !self.consume_specific('[') {
+            return Err(ParserError::ParseError("Expected '['".to_string()));
+        }
+        let mut array = vec![];
+        while self.peek() != ']' {
+            self.skip_whitespace();
+            let element = self.parse_helper().unwrap();
+            array.push(element);
+            self.skip_whitespace();
+            if !self.consume_specific(',') && !(self.peek() == ']') {
+                return Err(ParserError::ParseError("Expected ',' or ']'".to_string()));
+            }
+        }
+        if !self.consume_specific(']') {
+            return Err(ParserError::ParseError("Expected ']'".to_string()));
+        }
+        Ok(JsonValue::Array(array))
     }
 
     fn parse_bool(&mut self) -> Result<JsonValue, ParserError> {
@@ -281,6 +307,44 @@ fn test_parse_json_obj_with_null() {
         cursor: 0,
     };
     let expected_value = JsonValue::Object(HashMap::from([("foo".to_string(), JsonValue::Null)]));
+    match parser.parse() {
+        Ok(value) => assert_eq!(value, expected_value),
+        Err(_) => assert!(false),
+    };
+}
+
+#[test]
+fn test_parse_json_obj_with_array() {
+    let json_input = "
+[
+  	{
+		\"foo\": null
+	},
+	{
+		\"bar\": 123
+	},
+	{
+		\"baz\": \"abcde\"
+	},
+	345,
+	\"efgh\",
+	null,
+	false
+]
+".to_string();
+    let mut parser = JsonParser {
+        input: json_input, 
+        cursor: 0,
+    };
+    let expected_value = JsonValue::Array(vec![
+        JsonValue::Object(HashMap::from([("foo".to_string(), JsonValue::Null)])),
+        JsonValue::Object(HashMap::from([("bar".to_string(), JsonValue::Number(123))])),
+        JsonValue::Object(HashMap::from([("baz".to_string(), JsonValue::String("abcde".to_string()))])),
+        JsonValue::Number(345),
+        JsonValue::String("efgh".to_string()),
+        JsonValue::Null,
+        JsonValue::Bool(false),
+    ]);
     match parser.parse() {
         Ok(value) => assert_eq!(value, expected_value),
         Err(_) => assert!(false),
