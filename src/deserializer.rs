@@ -8,15 +8,14 @@ pub struct Deserializer {
 
 impl Deserializer {
     pub fn deserialize(&self) -> String {
-        let value: String = self.deserialize_helper(self.input.clone());
-        value
+        self.deserialize_helper(self.input.clone())
     }
 
     fn deserialize_helper(&self, value: JsonValue) -> String {
         return match value {
-            JsonValue::Array(array) => self.deserialize_array(array),
-            JsonValue::Object(map) => self.deserialize_object(map),
             JsonValue::String(value) => value,
+            JsonValue::Object(map) => self.deserialize_object(map),
+            JsonValue::Array(array) => self.deserialize_array(array),
             _ => "".to_string(),
         }
     }
@@ -60,7 +59,4 @@ impl Deserializer {
         builder.push('\n');
         builder
     }
-    
 }
-
-

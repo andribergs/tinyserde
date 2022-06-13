@@ -31,10 +31,7 @@ impl Clone for JsonValue {
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
-    ConsumeInputNotFinished(usize),
-    ParseHelperFailed(String),
-    ParseError(String),
-    InvalidJson(String),
+    ParseError(&'static str, usize),
 }
 
 #[derive(Debug, PartialEq)]
@@ -101,7 +98,7 @@ impl JsonParser {
         let value = self.parse_helper();
         self.skip_whitespace();
         if !self.eof() {
-            return Err(ParserError::ConsumeInputNotFinished(self.cursor.clone()))
+            return Err(ParserError::ParseError("Could not parse JSON.", self.cursor.clone()))
         }
         value
     }
@@ -139,7 +136,7 @@ impl JsonParser {
 
     fn consume_and_unescape_string(&mut self) -> Result<String, ParserError> {
         if !self.consume_specific('"') {
-            return Err(ParserError::ParseError("Expected '\"' ".to_string()));
+            return Err(ParserError::ParseError("Expected '\"' ", self.cursor));
         }
         let mut builder = String::new();
         while self.peek() != '"' {
@@ -160,19 +157,19 @@ impl JsonParser {
             ParseType::Boolean => self.parse_bool(),
             ParseType::Null => self.parse_null(),
             ParseType::Array => self.parse_array(),
-            _ => Err(ParserError::ParseHelperFailed("ParseHelper failed.".to_string())),
+            _ => Err(ParserError::ParseError("parse_helper failed", self.cursor)),
         };
     }
 
     fn parse_object(&mut self) -> Result<JsonValue, ParserError> {
         if !self.consume_specific('{') {
-            return Err(ParserError::ParseError("Expected '{'".to_string()));
+            return Err(ParserError::ParseError("Expected '{'", self.cursor));
         }
         let mut values: HashMap<String, JsonValue> = HashMap::new();
         loop {
             self.skip_whitespace();
             if self.peek() == '}' {
-                return Err(ParserError::InvalidJson("Invalid JSON.".to_string()));
+                return Err(ParserError::ParseError("'}' in an invalid position", self.cursor));
             }
             self.skip_whitespace();
 
@@ -181,7 +178,7 @@ impl JsonParser {
 
             self.skip_whitespace();
             if !self.consume_specific(':') {
-                return Err(ParserError::ParseError("Expected ':'".to_string()));
+                return Err(ParserError::ParseError("Expected ':'", self.cursor));
             }
             self.skip_whitespace();
 
@@ -194,22 +191,22 @@ impl JsonParser {
                 break;
             }
             if !self.consume_specific(',') {
-                return Err(ParserError::ParseError("Expected ','".to_string()));
+                return Err(ParserError::ParseError("Expected ','", self.cursor));
             }
             self.skip_whitespace();
             if self.peek() == '}' {
-                return Err(ParserError::InvalidJson("Invalid JSON.".to_string()));
+                return Err(ParserError::ParseError("'}' in an invalid position", self.cursor));
             }
         }
         if !self.consume_specific('}') {
-            return Err(ParserError::ParseError("Expected '}'".to_string()));
+            return Err(ParserError::ParseError("Expected '}'", self.cursor));
         }
         Ok(JsonValue::Object(values))
     }
 
     fn parse_array(&mut self) -> Result<JsonValue, ParserError> {
         if !self.consume_specific('[') {
-            return Err(ParserError::ParseError("Expected '['".to_string()));
+            return Err(ParserError::ParseError("Expected '['", self.cursor));
         }
         let mut array = vec![];
         while self.peek() != ']' {
@@ -218,11 +215,11 @@ impl JsonParser {
             array.push(element);
             self.skip_whitespace();
             if !self.consume_specific(',') && !(self.peek() == ']') {
-                return Err(ParserError::ParseError("Expected ',' or ']'".to_string()));
+                return Err(ParserError::ParseError("Expected ',' or ']'", self.cursor));
             }
         }
         if !self.consume_specific(']') {
-            return Err(ParserError::ParseError("Expected ']'".to_string()));
+            return Err(ParserError::ParseError("Expected ']'", self.cursor));
         }
         Ok(JsonValue::Array(array))
     }
@@ -236,7 +233,7 @@ impl JsonParser {
             value = false;
             self.cursor += 5;
         } else {
-            return Err(ParserError::ParseError("Expected either true or false".to_string()));
+            return Err(ParserError::ParseError("Expected either true or false", self.cursor));
         }
         Ok(JsonValue::Bool(value))
     }
@@ -245,7 +242,7 @@ impl JsonParser {
         if &self.input[self.cursor..self.cursor+4] == "null" {
             self.cursor += 4;
         } else {
-            return Err(ParserError::ParseError("Expected null".to_string()));
+            return Err(ParserError::ParseError("Expected null", self.cursor));
         }
         Ok(JsonValue::Null)
     }
