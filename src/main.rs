@@ -2,6 +2,7 @@ use std::{env, fs};
 use tinyserde::parser::JsonParser;
 use tinyserde::parser::JsonValue;
 use tinyserde::parser::ParserError;
+use tinyserde::deserializer::Deserializer;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -20,5 +21,9 @@ fn main() {
             Err(_) => panic!("Could not parse JSON: \n {}", parser.input),
         };
     }
-    println!("{:?}", parsed_objects);
+    let deserializer: Deserializer = Deserializer {
+        input: JsonValue::Array(parsed_objects)
+    };
+    let json_as_string = deserializer.deserialize();
+    fs::write("data/combined.json", json_as_string).expect("Unable to write file");
 }

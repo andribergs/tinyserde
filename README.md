@@ -1,6 +1,6 @@
-# Tiny Serde
+# Tiny serde
 
-A Basic JSON parser written in Rust.
+A basic JSON parser/serializer/deserializer written in Rust.
 
 ## To get started
 

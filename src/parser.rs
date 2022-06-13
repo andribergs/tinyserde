@@ -16,6 +16,19 @@ pub enum JsonValue {
     Object(HashMap<String, JsonValue>)
 }
 
+impl Clone for JsonValue {
+    fn clone(&self) -> Self {
+        match &self {
+            JsonValue::Null => JsonValue::Null,
+            JsonValue::Bool(val) => JsonValue::Bool(val.clone()),
+            JsonValue::Number(val) => JsonValue::Number(val.clone()),
+            JsonValue::String(val) => JsonValue::String(val.clone()),
+            JsonValue::Array(array) => JsonValue::Array(array.clone()),
+            JsonValue::Object(map) => JsonValue::Object(map.clone()),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     ConsumeInputNotFinished(usize),
@@ -345,6 +358,20 @@ fn test_parse_json_obj_with_array() {
         JsonValue::Null,
         JsonValue::Bool(false),
     ]);
+    match parser.parse() {
+        Ok(value) => assert_eq!(value, expected_value),
+        Err(_) => assert!(false),
+    };
+}
+
+#[test]
+fn test_parse_json_obj_with_nested_string() {
+    let json_input = "{ \"foo\": \"abcde and a nested string \"nested\" right in the middle of the sentence.\" }".to_string();
+    let mut parser = JsonParser {
+        input: json_input, 
+        cursor: 0,
+    };
+    let expected_value = JsonValue::Object(HashMap::from([("foo".to_string(), JsonValue::String("abcde and a nested string \"nested\" right in the middle of the sentence.".to_string()))]));
     match parser.parse() {
         Ok(value) => assert_eq!(value, expected_value),
         Err(_) => assert!(false),
