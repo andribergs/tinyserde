@@ -55,6 +55,16 @@ fn is_whitespace(c: char) -> bool {
     }
 }
 
+fn is_string_terminating_symbol(c: char) -> bool {
+    return match c {
+        '}' => true,
+        ']' => true,
+        ':' => true,
+        ',' => true,
+        _ => false,
+    }
+}
+
 fn is_numeric_char(c: char) -> bool { 
     return match c {
         '-' => true,
@@ -117,6 +127,21 @@ impl JsonParser {
         self.input.chars().nth(self.cursor).unwrap()
     }
 
+    fn peek_after_white_space(&mut self) -> char {
+        if self.eof() {
+            return '|';
+        }
+        let mut temp_cursor = self.cursor.clone();
+        temp_cursor += 1;
+        while !self.eof() {
+            if !is_whitespace(self.input.chars().nth(temp_cursor).unwrap()) {
+                break;
+            }
+            temp_cursor += 1;
+        }
+        self.input.chars().nth(temp_cursor).unwrap()
+    }
+
     fn skip_whitespace(&mut self) {
         while !self.eof() {
             if !is_whitespace(self.input.chars().nth(self.cursor).unwrap()) {
@@ -139,12 +164,26 @@ impl JsonParser {
             return Err(ParserError::ParseError("Expected '\"' ", self.cursor));
         }
         let mut builder = String::new();
-        while self.peek() != '"' {
-            builder.push(self.peek());
-            self.cursor += 1;
+        loop {
+            match self.peek() {
+                '"' => {
+                    if !is_string_terminating_symbol(self.peek_after_white_space()){
+                        builder.push('"');
+                        self.consume_specific('"');
+                    } else {
+                        self.consume_specific('"');
+                        return Ok(builder);
+                    }
+                },
+                '|' => {
+                    return Ok(builder);
+                },
+                ch => {
+                    builder.push(ch);
+                    self.cursor += 1;
+                }
+            }
         }
-        self.cursor += 1;
-        Ok(builder)
     }
 
     fn parse_helper(&mut self) -> Result<JsonValue, ParserError> {
